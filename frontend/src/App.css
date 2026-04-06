@@ -1,0 +1,84 @@
+/* App.css */
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f2f2f2;
+  text-align: center;
+}
+
+.container {
+  max-width: 800px;
+  margin: auto;
+  padding: 20px;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 0 10px #ccc;
+}
+
+.join-container input {
+  margin: 5px;
+  padding: 10px;
+  width: 150px;
+}
+
+.btn {
+  margin: 5px;
+  padding: 10px 15px;
+  cursor: pointer;
+  background-color: #ff0000;
+  color: white;
+  border: none;
+  border-radius: 5px;
+}
+
+.btn:hover {
+  background-color: #cc0000;
+}
+
+.role-display {
+  font-size: 16px;
+  margin: 10px 0;
+}
+
+.participants-container {
+  text-align: left;
+  margin-top: 20px;
+}
+
+.participants-container ul {
+  list-style: none;
+  padding: 0;
+}
+
+.participants-container li {
+  margin: 5px 0;
+}
+
+.role {
+  font-weight: bold;
+  color: #333;
+}
+
+.host-controls button {
+  margin-left: 5px;
+  padding: 3px 7px;
+  font-size: 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.host-controls button:hover {
+  background-color: #0056b3;
+}
+
+.video-control {
+  margin-top: 15px;
+}
+
+.video-control input {
+  padding: 5px;
+  width: 200px;
+  margin-right: 5px;
+}
