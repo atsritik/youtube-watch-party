@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import "./App.css";
 
-const socket = io("http://localhost:3000"); // replace with deployed URL if live
+const socket = io("https://youtube-watch-party-3ief.onrender.com"); // replace with deployed URL if live
 
 function App() {
   const playerRef = useRef(null);
