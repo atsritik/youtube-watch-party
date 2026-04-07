@@ -19,7 +19,7 @@ io.on('connection', (socket) => {
   socket.on('join_room', ({ roomId, username }) => {
     socket.join(roomId);
 
-    // Create room if it doesn't exist
+    // Create room if not exist
     if (!rooms[roomId]) {
       rooms[roomId] = {
         hostId: socket.id,
@@ -29,36 +29,43 @@ io.on('connection', (socket) => {
       };
     }
 
-    // Role Logic: First joiner is Host, others are Participants
+    // Role logic
     const role = (socket.id === rooms[roomId].hostId) ? 'Host' : 'Participant';
-    const newUser = { userId: socket.id, username: username || 'Anonymous', role };
+
+    const newUser = {
+      userId: socket.id,
+      username: username || 'Anonymous',
+      role
+    };
+
     rooms[roomId].participants.push(newUser);
 
-    // Send the user their role immediately
-    socket.emit('role_assigned', { 
-      userId: socket.id, 
-      role: role, 
-      participants: rooms[roomId].participants 
+    // Send role
+    socket.emit('role_assigned', {
+      userId: socket.id,
+      role,
+      participants: rooms[roomId].participants
     });
 
-    // Sync current video state to the new user
+    // Sync video state
     socket.emit('sync_state', {
       videoId: rooms[roomId].videoId,
       playing: rooms[roomId].playing
     });
 
-    // Update the list for everyone in the room
+    // Update all users
     io.to(roomId).emit('update_participants', {
       participants: rooms[roomId].participants
     });
   });
 
+  // Check permission
   const hasControl = (roomId) => {
     const user = rooms[roomId]?.participants.find(p => p.userId === socket.id);
     return user && (user.role === 'Host' || user.role === 'Moderator');
   };
 
-  // Sync actions
+  // Controls
   socket.on('play', ({ roomId }) => {
     if (hasControl(roomId)) socket.to(roomId).emit('play');
   });
@@ -78,32 +85,56 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Admin Actions (Host only)
+  // Host actions
   socket.on('assign_role', ({ roomId, userId, role }) => {
     if (rooms[roomId]?.hostId === socket.id) {
       const target = rooms[roomId].participants.find(p => p.userId === userId);
       if (target) {
         target.role = role;
-        io.to(roomId).emit('role_assigned', { userId, role, participants: rooms[roomId].participants });
-        io.to(roomId).emit('update_participants', { participants: rooms[roomId].participants });
+
+        io.to(roomId).emit('role_assigned', {
+          userId,
+          role,
+          participants: rooms[roomId].participants
+        });
+
+        io.to(roomId).emit('update_participants', {
+          participants: rooms[roomId].participants
+        });
       }
     }
   });
 
   socket.on('kick_user', ({ roomId, userId }) => {
     if (rooms[roomId]?.hostId === socket.id) {
-      rooms[roomId].participants = rooms[roomId].participants.filter(p => p.userId !== userId);
+      rooms[roomId].participants = rooms[roomId].participants.filter(
+        p => p.userId !== userId
+      );
+
       io.to(userId).emit('kicked');
-      io.to(roomId).emit('update_participants', { participants: rooms[roomId].participants });
+
+      io.to(roomId).emit('update_participants', {
+        participants: rooms[roomId].participants
+      });
     }
   });
 
   socket.on('disconnect', () => {
     for (const roomId in rooms) {
-      rooms[roomId].participants = rooms[roomId].participants.filter(p => p.userId !== socket.id);
-      io.to(roomId).emit('update_participants', { participants: rooms[roomId].participants });
+      rooms[roomId].participants = rooms[roomId].participants.filter(
+        p => p.userId !== socket.id
+      );
+
+      io.to(roomId).emit('update_participants', {
+        participants: rooms[roomId].participants
+      });
     }
   });
 });
 
-server.listen(5000, () => console.log(`Server running on port 5000`));
+// ✅ IMPORTANT FOR RAILWAY
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
+});
