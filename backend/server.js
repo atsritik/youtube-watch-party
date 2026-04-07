@@ -1,100 +1,109 @@
-// backend/server.js
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const cors = require("cors");
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
 
 const app = express();
 app.use(cors());
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, {
+  cors: { origin: "*", methods: ["GET", "POST"] }
+});
 
-const rooms = {}; // { roomId: { host, participants, videoId, time } }
+const rooms = {};
 
-io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
 
-  // Create room
-  socket.on("create_room", ({ roomId, username }) => {
+  socket.on('join_room', ({ roomId, username }) => {
     socket.join(roomId);
-    rooms[roomId] = {
-      host: socket.id,
-      participants: { [socket.id]: { username, role: "Host" } },
-      videoId: "dQw4w9WgXcQ",
-      time: 0
-    };
-    socket.role = "Host";
-    io.to(roomId).emit("user_joined", { participants: rooms[roomId].participants });
+
+    // Create room if it doesn't exist
+    if (!rooms[roomId]) {
+      rooms[roomId] = {
+        hostId: socket.id,
+        videoId: 'dQw4w9WgXcQ',
+        playing: false,
+        participants: []
+      };
+    }
+
+    // Role Logic: First joiner is Host, others are Participants
+    const role = (socket.id === rooms[roomId].hostId) ? 'Host' : 'Participant';
+    const newUser = { userId: socket.id, username: username || 'Anonymous', role };
+    rooms[roomId].participants.push(newUser);
+
+    // Send the user their role immediately
+    socket.emit('role_assigned', { 
+      userId: socket.id, 
+      role: role, 
+      participants: rooms[roomId].participants 
+    });
+
+    // Sync current video state to the new user
+    socket.emit('sync_state', {
+      videoId: rooms[roomId].videoId,
+      playing: rooms[roomId].playing
+    });
+
+    // Update the list for everyone in the room
+    io.to(roomId).emit('update_participants', {
+      participants: rooms[roomId].participants
+    });
   });
 
-  // Join room
-  socket.on("join_room", ({ roomId, username }) => {
-    if (!rooms[roomId]) return;
+  const hasControl = (roomId) => {
+    const user = rooms[roomId]?.participants.find(p => p.userId === socket.id);
+    return user && (user.role === 'Host' || user.role === 'Moderator');
+  };
 
-    socket.join(roomId);
-    rooms[roomId].participants[socket.id] = { username, role: "Participant" };
-    socket.role = "Participant";
-
-    // Update everyone with participant list
-    io.to(roomId).emit("user_joined", { participants: rooms[roomId].participants });
-
-    // Send current video + time to new participant
-    const { videoId, time } = rooms[roomId];
-    socket.emit("sync_state", { videoId, time });
+  // Sync actions
+  socket.on('play', ({ roomId }) => {
+    if (hasControl(roomId)) socket.to(roomId).emit('play');
   });
 
-  // Play/Pause/Seek/Change video
-  socket.on("play", ({ roomId }) => { if(socket.role==="Host"||socket.role==="Moderator") socket.to(roomId).emit("play"); });
-  socket.on("pause", ({ roomId }) => { if(socket.role==="Host"||socket.role==="Moderator") socket.to(roomId).emit("pause"); });
-  socket.on("seek", ({ roomId, time }) => { 
-    if(socket.role==="Host"||socket.role==="Moderator"){ 
-      rooms[roomId].time=time; 
-      socket.to(roomId).emit("seek",{time}); 
-    } 
-  });
-  socket.on("change_video", ({ roomId, videoId }) => { 
-    if(socket.role==="Host"||socket.role==="Moderator"){ 
-      rooms[roomId].videoId=videoId; 
-      socket.to(roomId).emit("change_video",{videoId}); 
-    } 
+  socket.on('pause', ({ roomId }) => {
+    if (hasControl(roomId)) socket.to(roomId).emit('pause');
   });
 
-  // Role & participant management
-  socket.on("assign_role", ({ roomId, userId, role }) => { 
-    if(socket.id===rooms[roomId]?.host && rooms[roomId].participants[userId]){
-      rooms[roomId].participants[userId].role=role; 
-      io.to(roomId).emit("role_assigned",{participants:rooms[roomId].participants}); 
-    } 
+  socket.on('seek', ({ roomId, time }) => {
+    if (hasControl(roomId)) socket.to(roomId).emit('seek', { time });
   });
 
-  socket.on("remove_participant", ({ roomId, userId }) => { 
-    if(socket.id===rooms[roomId]?.host){ 
-      delete rooms[roomId].participants[userId]; 
-      io.to(roomId).emit("participant_removed",{participants:rooms[roomId].participants}); 
-    } 
+  socket.on('change_video', ({ roomId, videoId }) => {
+    if (hasControl(roomId)) {
+      rooms[roomId].videoId = videoId;
+      io.to(roomId).emit('change_video', { videoId });
+    }
   });
 
-  // Sync for new participant
-  socket.on("send_sync", ({ roomId, userId, time, videoId }) => { 
-    io.to(userId).emit("sync_state",{time,videoId}); 
-  });
-
-  // Disconnect handling
-  socket.on("disconnect", () => {
-    for (let roomId in rooms) {
-      if(rooms[roomId].participants[socket.id]){
-        delete rooms[roomId].participants[socket.id];
-        if(rooms[roomId].host===socket.id){
-          const remaining=Object.keys(rooms[roomId].participants);
-          if(remaining.length>0){ rooms[roomId].host=remaining[0]; rooms[roomId].participants[remaining[0]].role="Host"; }
-          else{ delete rooms[roomId]; continue; }
-        }
-        io.to(roomId).emit("user_left",{participants:rooms[roomId].participants});
+  // Admin Actions (Host only)
+  socket.on('assign_role', ({ roomId, userId, role }) => {
+    if (rooms[roomId]?.hostId === socket.id) {
+      const target = rooms[roomId].participants.find(p => p.userId === userId);
+      if (target) {
+        target.role = role;
+        io.to(roomId).emit('role_assigned', { userId, role, participants: rooms[roomId].participants });
+        io.to(roomId).emit('update_participants', { participants: rooms[roomId].participants });
       }
+    }
+  });
+
+  socket.on('kick_user', ({ roomId, userId }) => {
+    if (rooms[roomId]?.hostId === socket.id) {
+      rooms[roomId].participants = rooms[roomId].participants.filter(p => p.userId !== userId);
+      io.to(userId).emit('kicked');
+      io.to(roomId).emit('update_participants', { participants: rooms[roomId].participants });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    for (const roomId in rooms) {
+      rooms[roomId].participants = rooms[roomId].participants.filter(p => p.userId !== socket.id);
+      io.to(roomId).emit('update_participants', { participants: rooms[roomId].participants });
     }
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(5000, () => console.log(`Server running on port 5000`));

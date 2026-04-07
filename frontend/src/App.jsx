@@ -1,157 +1,160 @@
-import { useEffect, useRef, useState } from "react";
-import { io } from "socket.io-client";
-import "./App.css";
+import React, { useState, useEffect, useRef } from 'react';
+import io from 'socket.io-client';
+import YouTube from 'react-youtube';
+import './App.css';
 
-const socket = io("https://youtube-watch-party-1-frontend.onrender.com"); // replace with deployed URL if live
+// Connect to your local backend
+const socket = io('http://localhost:5000');
 
 function App() {
-  const playerRef = useRef(null);
-  const [roomId, setRoomId] = useState("");
-  const [username, setUsername] = useState("");
+  const [roomId, setRoomId] = useState('');
+  const [username, setUsername] = useState('');
   const [joined, setJoined] = useState(false);
-  const [role, setRole] = useState("");
-  const [participants, setParticipants] = useState({});
-  const [videoId, setVideoId] = useState("dQw4w9WgXcQ");
-  const [videoInput, setVideoInput] = useState("");
+  const [participants, setParticipants] = useState([]);
+  const [videoId, setVideoId] = useState('dQw4w9WgXcQ');
+  const [userRole, setUserRole] = useState('Participant');
+  const [player, setPlayer] = useState(null);
+  const [inputUrl, setInputUrl] = useState('');
 
-  // --- YouTube & Socket listeners ---
+  const isSyncing = useRef(false);
+
   useEffect(() => {
-    socket.on("user_joined", ({ participants }) => setParticipants(participants));
-    socket.on("user_left", ({ participants }) => setParticipants(participants));
-    socket.on("role_assigned", ({ participants }) => setParticipants(participants));
-    socket.on("participant_removed", ({ participants }) => setParticipants(participants));
-
-    socket.on("play", () => playerRef.current?.playVideo());
-    socket.on("pause", () => playerRef.current?.pauseVideo());
-    socket.on("seek", ({ time }) => playerRef.current?.seekTo(time, true));
-    socket.on("change_video", ({ videoId }) => {
-      setVideoId(videoId);
-      playerRef.current.loadVideoById(videoId);
+    // Role and Participant List Updates
+    socket.on('role_assigned', ({ userId, role, participants: pList }) => {
+      if (userId === socket.id) setUserRole(role);
+      setParticipants(pList);
     });
 
-    socket.on("send_sync_to", ({ userId }) => {
-      if (role === "Host") {
-        const time = playerRef.current.getCurrentTime();
-        const videoId = playerRef.current.getVideoData().video_id;
-        socket.emit("send_sync", { roomId, userId, time, videoId });
-      }
+    socket.on('user_joined', ({ participants: pList }) => setParticipants(pList));
+    socket.on('user_left', ({ participants: pList }) => setParticipants(pList));
+    
+    // Initial Sync
+    socket.on('sync_state', (state) => setVideoId(state.videoId));
+
+    // Playback Sync Listeners
+    socket.on('play', () => {
+      isSyncing.current = true;
+      player?.playVideo();
     });
 
-    socket.on("sync_state", ({ time, videoId }) => {
-      setVideoId(videoId);
-      playerRef.current.loadVideoById(videoId);
-      playerRef.current.seekTo(time, true);
+    socket.on('pause', () => {
+      isSyncing.current = true;
+      player?.pauseVideo();
     });
-  }, [role, roomId]);
 
-  // --- Initialize YouTube Player ---
-  const initYouTube = () => {
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.body.appendChild(tag);
+    socket.on('seek', ({ time }) => {
+      isSyncing.current = true;
+      player?.seekTo(time);
+    });
 
-    window.onYouTubeIframeAPIReady = () => {
-      playerRef.current = new window.YT.Player("player", {
-        height: "360",
-        width: "640",
-        videoId: videoId,
-        playerVars: { autoplay: 0 },
-        events: {
-          onStateChange: (event) => {
-            if (role === "Host" || role === "Moderator") {
-              const state = event.data;
-              if (state === 1) socket.emit("play", { roomId });
-              else if (state === 2) socket.emit("pause", { roomId });
-            }
-          },
-        },
-      });
-    };
-  };
+    socket.on('change_video', ({ videoId: newId }) => setVideoId(newId));
 
-  // --- Room actions ---
-  const createRoom = () => {
-    if (!roomId || !username) return;
-    socket.emit("create_room", { roomId, username });
-    setRole("Host");
-    setJoined(true);
-    initYouTube();
-  };
+    socket.on('participant_removed', () => {
+      alert("You have been removed from the room.");
+      window.location.reload();
+    });
+
+    return () => socket.off();
+  }, [player]);
 
   const joinRoom = () => {
-    if (!roomId || !username) return;
-    socket.emit("join_room", { roomId, username });
-    setRole("Participant");
-    setJoined(true);
-    initYouTube();
+    if (roomId && username) {
+      socket.emit('join_room', { roomId, username });
+      setJoined(true);
+    }
   };
 
-  // --- Host actions ---
-  const assignRole = (userId, newRole) => socket.emit("assign_role", { roomId, userId, role: newRole });
-  const removeParticipant = (userId) => socket.emit("remove_participant", { roomId, userId });
+  const hasControl = userRole === 'Host' || userRole === 'Moderator';
 
-  // --- Utility to extract YouTube Video ID ---
-  const extractVideoID = (url) => {
-    const regex = /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})|youtu\.be\/([a-zA-Z0-9_-]{11})/;
-    const match = url.match(regex);
-    return match ? (match[1] || match[2]) : url; // if not a URL, assume it's ID
+  const onStateChange = (event) => {
+    if (isSyncing.current) {
+      isSyncing.current = false;
+      return;
+    }
+    if (!hasControl) return;
+
+    // Send Play (1) or Pause (2) events to server
+    if (event.data === 1) socket.emit('play', { roomId });
+    if (event.data === 2) socket.emit('pause', { roomId });
   };
 
-  // --- Change video action ---
-  const handleChangeVideo = () => {
-    const id = extractVideoID(videoInput);
-    setVideoId(id);
-    playerRef.current.loadVideoById(id);
-    socket.emit("change_video", { roomId, videoId: id });
-    setVideoInput("");
+  const handleVideoChange = () => {
+    let vId = '';
+    if (inputUrl.includes('v=')) vId = inputUrl.split('v=')[1].split('&')[0];
+    else if (inputUrl.includes('youtu.be/')) vId = inputUrl.split('youtu.be/')[1].split('?')[0];
+    else vId = inputUrl; // Fallback for direct ID entry
+
+    if (vId) {
+      socket.emit('change_video', { roomId, videoId: vId });
+      setInputUrl('');
+    }
   };
+
+  if (!joined) {
+    return (
+      <div className="login-screen">
+        <div className="login-card">
+          <h1>YouTube Watch Party</h1>
+          <input placeholder="Enter Username" onChange={e => setUsername(e.target.value)} />
+          <input placeholder="Enter Room ID" onChange={e => setRoomId(e.target.value)} />
+          <button className="join-btn" onClick={joinRoom}>Join / Create Room</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container">
-      <h1>YouTube Watch Party</h1>
-
-      {!joined ? (
-        <div className="join-container">
-          <input placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
-          <input placeholder="Room ID" value={roomId} onChange={(e) => setRoomId(e.target.value)} />
-          <button className="btn" onClick={createRoom}>Create Room</button>
-          <button className="btn" onClick={joinRoom}>Join Room</button>
-        </div>
-      ) : (
-        <>
-          <div id="player"></div>
-          <p className="role-display">Role: <strong>{role}</strong></p>
-
-          <div className="participants-container">
-            <h3>Participants</h3>
-            <ul>
-              {Object.entries(participants).map(([id, p]) => (
-                <li key={id}>
-                  {p.username} - <span className="role">{p.role}</span>
-                  {(role === "Host") && id !== socket.id && (
-                    <span className="host-controls">
-                      <button onClick={() => assignRole(id, "Moderator")}>Make Moderator</button>
-                      <button onClick={() => assignRole(id, "Participant")}>Make Participant</button>
-                      <button onClick={() => removeParticipant(id)}>Remove</button>
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {(role === "Host" || role === "Moderator") && (
-            <div className="video-control">
-              <input
-                placeholder="YouTube link or ID"
-                value={videoInput}
-                onChange={(e) => setVideoInput(e.target.value)}
+    <div className="app-container">
+      <div className="main-content">
+        <div className="header">
+          <h2>Room: {roomId} | <span className="role-text">You: {userRole}</span></h2>
+          {hasControl && (
+            <div className="update-video-bar">
+              <input 
+                value={inputUrl} 
+                onChange={e => setInputUrl(e.target.value)} 
+                placeholder="Paste YouTube Link" 
               />
-              <button onClick={handleChangeVideo}>Change Video</button>
+              <button onClick={handleVideoChange}>Update Video</button>
             </div>
           )}
-        </>
-      )}
+        </div>
+
+        <div className="video-section">
+          <YouTube 
+            videoId={videoId} 
+            onReady={e => setPlayer(e.target)} 
+            onStateChange={onStateChange}
+            opts={{ 
+              width: '100%', 
+              height: '450px', 
+              playerVars: { 
+                controls: hasControl ? 1 : 0, 
+                autoplay: 1, 
+                mute: 1      
+              } 
+            }} 
+          />
+          <p className="hint">Note: Video is muted by default. Click the speaker icon to unmute.</p>
+        </div>
+      </div>
+
+      <div className="sidebar">
+        <h3>Participants</h3>
+        <div className="participant-list">
+          {participants.map(p => (
+            <div key={p.userId} className={`participant-item ${p.userId === socket.id ? 'is-me' : ''}`}>
+              <span>{p.username} <strong>({p.role})</strong></span>
+              {userRole === 'Host' && p.userId !== socket.id && (
+                <div className="admin-actions">
+                  <button onClick={() => socket.emit('assign_role', { roomId, userId: p.userId, role: 'Moderator' })}>Mod</button>
+                  <button className="kick-btn" onClick={() => socket.emit('remove_participant', { roomId, userId: p.userId })}>Kick</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
