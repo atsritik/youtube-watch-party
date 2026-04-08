@@ -1,16 +1,18 @@
-# React + Vite
+# 📺 YouTube Watch Party
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A real-time synchronized video sharing platform built with React and Socket.io.
 
-Currently, two official plugins are available:
+## 🚀 Live Demo
+* **Frontend:** [Link to your Netlify site]
+* **Backend:** [Link to your Railway public domain]
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🛠 Features
+- **Real-time Sync:** All users see the same video at the same time.
+- **Role-Based Access:** Only the Host can change videos and control playback.
+- **Cinema UI:** Modern dark-mode interface for better viewing.
+- **Room Logic:** Users can create or join specific rooms by ID.
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 💻 Tech Stack
+- **Frontend:** React, Vite, Socket.io-client
+- **Backend:** Node.js, Express, Socket.io
+- **Deployment:** Netlify & Railway
