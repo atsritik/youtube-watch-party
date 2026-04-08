@@ -1,63 +1,193 @@
-.app-grid {
-  display: grid;
-  grid-template-columns: 3fr 1fr;
-  gap: 20px;
-  padding: 20px;
-  height: 100vh;
-  background: #1a1a1a;
-  color: white;
+/* --- Google Fonts --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Poppins:wght@700&display=swap');
+
+:root {
+  --bg-color: #0a0a0a;           /* Deep black background */
+  --card-bg: #161616;            /* Subtle dark gray card */
+  --accent-color: #ff3b3b;       /* Vibrant YouTube Red */
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --text-primary: #ffffff;
+  --text-secondary: #b0b0b0;
 }
 
-.setup-container {
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  overflow: hidden;
+}
+
+/* --- Login Screen (High Visibility Fix) --- */
+.login-screen {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100vh;
-  gap: 10px;
+  background: radial-gradient(circle at center, #1a1a1a 0%, #050505 100%);
 }
 
-.video-section {
+.login-card {
+  background: var(--card-bg);
+  padding: 40px;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  width: 100%;
+  max-width: 420px;
+}
+
+/* Fix: Maximum Text Visibility for "YouTube Watch Party" */
+.login-card h1 {
+  font-family: 'Poppins', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin-bottom: 30px;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  
+  /* Solid high-contrast colors for clarity */
+  background: linear-gradient(to right, #ffffff 40%, var(--accent-color) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  
+  /* Drop shadow makes text pop off the card background */
+  filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.8));
+}
+
+.login-card input {
+  width: 100%;
+  background: #000;
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  font-size: 1rem;
+}
+
+.login-card input:focus {
+  outline: 2px solid var(--accent-color);
+  border-color: transparent;
+}
+
+.join-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #ff4b4b 0%, #b30000 100%);
+  color: white;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+  box-shadow: 0 4px 15px rgba(255, 59, 59, 0.3);
+}
+
+.join-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+/* --- Main Dashboard --- */
+.app-container {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  height: 100vh;
+}
+
+.main-content {
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 15px;
 }
 
-.controls input {
-  padding: 8px;
-  width: 300px;
-  margin-right: 10px;
-}
-
-.sidebar {
-  background: #2d2d2d;
-  padding: 15px;
-  border-radius: 8px;
-}
-
-.sidebar ul {
-  list-style: none;
-  padding: 0;
-}
-
-.sidebar li {
-  padding: 10px;
-  border-bottom: 1px solid #444;
+.header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--glass-border);
+  margin-bottom: 20px;
 }
 
-button {
-  cursor: pointer;
-  padding: 5px 10px;
-  background: #ff0000;
-  color: white;
-  border: none;
+.role-badge {
+  background: rgba(255, 59, 59, 0.15);
+  color: var(--accent-color);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1px solid rgba(255, 59, 59, 0.3);
+}
+
+.video-section {
+  flex: 1;
+  background: #000;
+  border-radius: 15px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+}
+
+/* --- Sidebar & Participants --- */
+.sidebar {
+  background: var(--card-bg);
+  border-left: 1px solid var(--glass-border);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar h3 {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.participant-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border: 1px solid transparent;
+}
+
+.participant-item.me {
+  border-color: var(--accent-color);
+  background: rgba(255, 59, 59, 0.05);
+}
+
+.kick-btn {
+  background: transparent;
+  color: #ff4444;
+  border: 1px solid #ff4444;
+  padding: 2px 8px;
   border-radius: 4px;
+  font-size: 0.7rem;
 }
 
-button:disabled {
-  background: #555;
-  cursor: not-allowed;
+.kick-btn:hover {
+  background: #ff4444;
+  color: #fff;
+}
+
+.mute-notice {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 10px;
+  font-style: italic;
 }

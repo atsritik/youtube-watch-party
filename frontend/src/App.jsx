@@ -4,7 +4,7 @@ import YouTube from 'react-youtube';
 import './App.css';
 
 // Connect to your local backend
-const socket = io('http://localhost:5000');
+const socket = io('https://your-railway-backend-url.up.railway.app');
 
 function App() {
   const [roomId, setRoomId] = useState('');
